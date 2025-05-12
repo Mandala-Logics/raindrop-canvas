@@ -1,0 +1,10 @@
+# Ignore TypeScript source files
+*.ts
+
+# Ignore JSON files
+*.json
+
+# Node/Build stuff (in case you're using tools later)
+node_modules/
+dist/
+build/

@@ -1,0 +1,36 @@
+.color-shift-layer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, 
+    red, orange, yellow, green, cyan, blue, violet, red);
+  background-size: 200% 200%;
+  animation: shift 10s linear infinite;
+  z-index: 0;
+}
+
+@keyframes shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.white-layer {
+  position: absolute;
+  inset: 0;
+  background: white;
+  z-index: 0;
+}
+
+.mask-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.blur-layer {
+  position: absolute;
+  inset: 0;
+  filter: blur(10px);
+  z-index: 2;
+}
