@@ -1,21 +1,5 @@
-const cellCollisionMultiplier = 0.1;
-const spreadingForceMultiplier = 0.5;
-const polygonCollisionMultiplier = 0.01;
-const polygonResolution = 8;
-const g = 2;
-const polygonSmoothLength = 10;
-const smoothingIncriment = 0.5;
-const smoothingRadius = 2;
-const smoothLoopLimit = 1e3;
-const maxCellCount = 400;
-const cellRadius = 2;
-const cellMax = 0.5;
-const cellMin = 0.35;
-const trailQ = 0.3;
 const Tau = 2 * Math.PI;
 const fuzziness = 0.4;
-const drop_x_cohesion = cellRadius * 5;
-const drop_y_cohesion = cellRadius * 10;
 var RectCorner;
 (function (RectCorner) {
     RectCorner[RectCorner["TopLeft"] = 0] = "TopLeft";
@@ -24,17 +8,17 @@ var RectCorner;
     RectCorner[RectCorner["BottomRight"] = 3] = "BottomRight";
 })(RectCorner || (RectCorner = {}));
 function DivRem(a, b) {
-    var quotient = Math.trunc(a / b);
-    var remainder = a - (quotient * b);
+    const quotient = Math.trunc(a / b);
+    const remainder = a - (quotient * b);
     return { quotient, remainder };
 }
 function GetBoundingRect(cells) {
-    var x_max = -Infinity;
-    var y_max = -Infinity;
-    var x_min = Infinity;
-    var y_min = Infinity;
-    var top_left;
-    var bottom_right;
+    let x_max = -Infinity;
+    let y_max = -Infinity;
+    let x_min = Infinity;
+    let y_min = Infinity;
+    let top_left;
+    let bottom_right;
     cells.forEach(cell => {
         top_left = cell.collision.GetCorner(RectCorner.TopLeft);
         bottom_right = cell.collision.GetCorner(RectCorner.BottomRight);
@@ -81,10 +65,31 @@ function ClusterCells(cells, max_x, max_y) {
     }
     return clusters;
 }
+export class RaindropSettings {
+    constructor(overrides = {}) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
+        this.cellCollisionMultiplier = (_a = overrides.cellCollisionMultiplier) !== null && _a !== void 0 ? _a : 0.1;
+        this.spreadingForceMultiplier = (_b = overrides.spreadingForceMultiplier) !== null && _b !== void 0 ? _b : 0.5;
+        this.polygonCollisionMultiplier = (_c = overrides.polygonCollisionMultiplier) !== null && _c !== void 0 ? _c : 0.01;
+        this.polygonResolution = (_d = overrides.polygonResolution) !== null && _d !== void 0 ? _d : 8;
+        this.gravity = (_e = overrides.gravity) !== null && _e !== void 0 ? _e : 2;
+        this.polygonSmoothLength = (_f = overrides.polygonSmoothLength) !== null && _f !== void 0 ? _f : 10;
+        this.smoothingIncriment = (_g = overrides.smoothingIncriment) !== null && _g !== void 0 ? _g : 0.5;
+        this.smoothingRadius = (_h = overrides.smoothingRadius) !== null && _h !== void 0 ? _h : 2;
+        this.smoothLoopLimit = (_j = overrides.smoothLoopLimit) !== null && _j !== void 0 ? _j : 1e3;
+        this.maxCellCount = (_k = overrides.maxCellCount) !== null && _k !== void 0 ? _k : 400;
+        this.cellRadius = (_l = overrides.cellRadius) !== null && _l !== void 0 ? _l : 2;
+        this.cellMax = (_m = overrides.cellMax) !== null && _m !== void 0 ? _m : 0.5;
+        this.cellMin = (_o = overrides.cellMin) !== null && _o !== void 0 ? _o : 0.35;
+        this.trailQ = (_p = overrides.trailQ) !== null && _p !== void 0 ? _p : 0.3;
+        this.drop_x_cohesion = (_q = overrides.drop_x_cohesion) !== null && _q !== void 0 ? _q : (this.cellRadius * 5);
+        this.drop_y_cohesion = (_r = overrides.drop_y_cohesion) !== null && _r !== void 0 ? _r : (this.cellRadius * 10);
+        this.canvasMargin = (_s = overrides.canvasMargin) !== null && _s !== void 0 ? _s : 50;
+    }
+}
 export class RaindropCanvas {
     constructor(drawCallback) {
         this.Cells = [];
-        this.Gravity = new PolarNumber(g, Math.PI / 2);
         this.Polygons = [];
         this.canvasRect = new Rect(new Vector(0, 0), 0, 0);
         this.keepLoopGoing = true;
@@ -104,23 +109,32 @@ export class RaindropCanvas {
             }
         };
         this.callback = drawCallback;
+        this.settings = new RaindropSettings();
+        this.Gravity = new PolarNumber(this.settings.gravity, Math.PI / 2);
+    }
+    ApplySettings(settings) {
+        Object.assign(this.settings, settings);
+    }
+    GetSettings() {
+        return this.settings;
     }
     CellCount() { return this.Cells.length; }
     OnCanvasResize(HTMLCanvas) {
-        var margin = 100;
+        const margin = this.settings.canvasMargin;
         this.canvasRect = new Rect(new Vector(-margin, -margin), HTMLCanvas.width + margin, HTMLCanvas.height + margin);
     }
     ShedDrops() {
-        if (this.Cells.length < maxCellCount) {
+        if (this.Cells.length < this.settings.maxCellCount) {
             this.Polygons.forEach(polygon => {
                 if (Math.random() < 0.5) {
-                    this.Cells.push(new DropCell(trailQ, polygon.Centroid));
+                    this.Cells.push(new DropCell(this.settings.trailQ, polygon.Centroid, this.settings.cellRadius));
                 }
             });
         }
     }
     Stop() {
         this.Cells = [];
+        this.Polygons = [];
         this.keepLoopGoing = false;
     }
     Start() {
@@ -128,34 +142,32 @@ export class RaindropCanvas {
     }
     DefinePolygons() {
         this.Polygons = [];
-        var clusters = ClusterCells(this.Cells, drop_x_cohesion, drop_y_cohesion);
+        const clusters = ClusterCells(this.Cells, this.settings.drop_x_cohesion, this.settings.drop_y_cohesion);
         for (let i = 0; i < clusters.length; i++) {
-            this.Polygons.push(new DropPolygon(clusters[i], polygonResolution));
+            this.Polygons.push(new DropPolygon(this.settings, clusters[i], this.settings.polygonResolution));
         }
     }
     SpawnDrop(Q, x, y) {
-        if (this.Cells.length < maxCellCount) {
-            this.Cells.push(new DropCell(Q, new Vector(x, y)));
+        if (this.Cells.length < this.settings.maxCellCount) {
+            this.Cells.push(new DropCell(Q, new Vector(x, y), this.settings.cellRadius));
         }
     }
     ApplyPolygonCollision() {
-        var circle;
         this.Polygons.forEach(polygon => {
             polygon.Cells.forEach(cell => {
-                circle = cell.collision.GetShift(cell.force);
-                var I = polygon.GetIntersection(circle);
-                cell.ApplyForce(I, polygonCollisionMultiplier);
+                let circle = cell.collision.GetShift(cell.force);
+                let I = polygon.GetIntersection(circle);
+                cell.ApplyForce(I, this.settings.polygonCollisionMultiplier);
             });
         });
     }
     ApplyCellCollision() {
-        var b;
-        var i1;
-        var i2;
-        var c_a, c_b;
-        var force;
+        let i1;
+        let i2;
+        let c_a, c_b;
+        let force;
         for (let a = 0; a < this.Cells.length; a++) {
-            for (b = 0; b < this.Cells.length; b++) {
+            for (let b = 0; b < this.Cells.length; b++) {
                 if (a === b) {
                     continue;
                 }
@@ -173,8 +185,8 @@ export class RaindropCanvas {
                     continue;
                 }
                 if (i2.r > i1.r) {
-                    this.Cells[b].ApplyForce(force = new PolarNumber(i2.r - i1.r, i1.theta), cellCollisionMultiplier);
-                    this.Cells[a].ApplyForce(force.GetInverse(), cellCollisionMultiplier);
+                    this.Cells[b].ApplyForce(force = new PolarNumber(i2.r - i1.r, i1.theta), this.settings.cellCollisionMultiplier);
+                    this.Cells[a].ApplyForce(force.GetInverse(), this.settings.cellCollisionMultiplier);
                 }
             }
         }
@@ -186,7 +198,7 @@ export class RaindropCanvas {
         });
     }
     RemoveCells() {
-        var rm = [];
+        const rm = [];
         this.Cells.forEach(cell => {
             if (!this.canvasRect.IsContained(cell.collision.center)) {
                 rm.push(cell);
@@ -197,15 +209,15 @@ export class RaindropCanvas {
         }
     }
     SplitCells() {
-        var r;
-        var i;
-        var add = [];
+        let r;
+        let i;
+        const add = [];
         this.Cells.forEach(cell => {
-            if (cell.Q > cellMax) {
-                r = DivRem(cell.Q, cellMax);
-                cell.Q = Math.max(r.remainder, cellMin);
+            if (cell.Q > this.settings.cellMax) {
+                r = DivRem(cell.Q, this.settings.cellMax);
+                cell.Q = Math.max(r.remainder, this.settings.cellMin);
                 for (i = 1; i <= r.quotient; i++) {
-                    add.push(new DropCell(cellMax, cell.collision.center.Clone(0, 0)));
+                    add.push(new DropCell(this.settings.cellMax, cell.collision.center.Clone(0, 0), this.settings.cellRadius));
                 }
             }
         });
@@ -214,8 +226,8 @@ export class RaindropCanvas {
         });
     }
     ApplySpreadingForce() {
-        var b, a;
-        var z;
+        let b, a;
+        let z;
         this.Polygons.forEach(polygon => {
             for (a = 0; a < polygon.Cells.length; a++) {
                 for (b = 0; b < polygon.Cells.length; b++) {
@@ -225,7 +237,7 @@ export class RaindropCanvas {
                     else {
                         z = polygon.Cells[a].collision.Intersection(polygon.Cells[b].collision);
                         if (z instanceof PolarNumber) {
-                            polygon.Cells[b].ApplyForce(z, spreadingForceMultiplier);
+                            polygon.Cells[b].ApplyForce(z, this.settings.spreadingForceMultiplier);
                         }
                     }
                 }
@@ -238,7 +250,7 @@ export class RaindropCanvas {
         });
     }
 }
-class PolarNumber {
+export class PolarNumber {
     constructor(r, theta) {
         this.r = r;
         this.theta = theta;
@@ -280,18 +292,18 @@ class Vector {
         return new Vector(this.x + dx, this.y + dy);
     }
     GetDirection(other) {
-        var x = other.x - this.x;
-        var y = other.y - this.y;
+        const x = other.x - this.x;
+        const y = other.y - this.y;
         return Math.atan2(y, x);
     }
     GetDistance(other) {
-        var x = other.x - this.x;
-        var y = other.y - this.y;
+        const x = other.x - this.x;
+        const y = other.y - this.y;
         return Math.sqrt(x * x + y * y);
     }
     GetMidpoint(other) {
-        var dx = other.x - this.x;
-        var dy = other.y - this.y;
+        const dx = other.x - this.x;
+        const dy = other.y - this.y;
         return new Vector(this.x + dx / 2, this.y + dy / 2);
     }
     Clone(dx, dy) {
@@ -368,7 +380,7 @@ class Line {
     IsHorizontal() { return this.v2.y - this.v1.y < fuzziness; }
 }
 export class DropPolygon {
-    constructor(cells, pointsPerCircle = 16) {
+    constructor(settings, cells, pointsPerCircle = 16) {
         this.Hull = [];
         this.Lines = [];
         const allPoints = [];
@@ -379,17 +391,18 @@ export class DropPolygon {
         this.Cells = cells;
         this.GetLines();
         this.Centroid = GetBoundingRect(this.Cells).GetCenter();
+        this.settings = settings;
     }
     TotalQ() {
-        var ret = 0;
+        let ret = 0;
         this.Cells.forEach(cell => {
             ret += cell.Q;
         });
         return ret;
     }
     GetIntersection(circle) {
-        var ret = new PolarNumber(0, 0);
-        var x;
+        const ret = new PolarNumber(0, 0);
+        let x;
         this.Lines.forEach(line => {
             x = circle.GetLineIntersection(line);
             if (x instanceof PolarNumber) {
@@ -399,25 +412,25 @@ export class DropPolygon {
         return ret;
     }
     SmoothPolygon() {
-        var smoothVectors = [];
-        this.Lines.forEach(line => smoothVectors.push(...line.Break(polygonSmoothLength)));
-        var circles = [];
-        smoothVectors.forEach(vector => circles.push(new Circle(vector, smoothingRadius)));
-        var changed = true;
-        var z;
-        var shifted;
-        var c1, c2;
-        var I;
-        var locked = [];
-        var n = 0;
-        while (changed && n < smoothLoopLimit) {
+        const smoothVectors = [];
+        this.Lines.forEach(line => smoothVectors.push(...line.Break(this.settings.polygonSmoothLength)));
+        const circles = [];
+        smoothVectors.forEach(vector => circles.push(new Circle(vector, this.settings.smoothingRadius)));
+        let changed = true;
+        let z;
+        let shifted;
+        let c1, c2;
+        let I;
+        const locked = [];
+        let n = 0;
+        while (changed && n < this.settings.smoothLoopLimit) {
             changed = false;
             n++;
             for (c1 = 0; c1 < circles.length; c1++) {
                 if (locked.includes(circles[c1])) {
                     continue;
                 }
-                z = new PolarNumber(smoothingIncriment, (circles[c1].center.x > this.Centroid.x) ? Math.PI : 0);
+                z = new PolarNumber(this.settings.smoothingIncriment, (circles[c1].center.x > this.Centroid.x) ? Math.PI : 0);
                 shifted = circles[c1].GetShift(z);
                 for (c2 = 0; c2 < circles.length; c2++) {
                     if (c1 === c2) {
@@ -499,7 +512,7 @@ export class DropPolygon {
     DrawSmooth(context) {
         if (this.Hull.length === 0)
             return;
-        var hull = this.SmoothPolygon();
+        const hull = this.SmoothPolygon();
         context.beginPath();
         context.moveTo(hull[0].x, hull[0].y);
         for (let i = 1; i < hull.length; i++) {
@@ -522,7 +535,7 @@ export class DropPolygon {
     FillSmooth(context) {
         if (this.Hull.length === 0)
             return;
-        var hull = this.SmoothPolygon();
+        const hull = this.SmoothPolygon();
         context.beginPath();
         context.moveTo(hull[0].x, hull[0].y);
         for (let i = 1; i < hull.length; i++) {
@@ -537,7 +550,7 @@ class Rect {
         this.TopLeft = topLeft.Clone(0, 0);
         this.BottomRight = new Vector(topLeft.x + width, topLeft.y + height);
     }
-    GetRandomInteralPoint() {
+    GetRandomInternalPoint() {
         return new Vector(this.Width() * Math.random() + this.TopLeft.x, this.Height() * Math.random() + this.TopLeft.y);
     }
     IsContained(vector) {
@@ -564,10 +577,10 @@ class Rect {
     Draw(context) {
         context.beginPath();
         context.moveTo(this.TopLeft.x, this.TopLeft.y);
-        context.moveTo(this.BottomRight.x, this.TopLeft.y);
-        context.moveTo(this.BottomRight.x, this.BottomRight.y);
-        context.moveTo(this.TopLeft.x, this.BottomRight.y);
-        context.moveTo(this.TopLeft.x, this.TopLeft.y);
+        context.lineTo(this.BottomRight.x, this.TopLeft.y);
+        context.lineTo(this.BottomRight.x, this.BottomRight.y);
+        context.lineTo(this.TopLeft.x, this.BottomRight.y);
+        context.closePath();
         context.stroke();
     }
 }
@@ -599,12 +612,12 @@ class Circle {
     Height() { return this.radius * 2; }
     Draw(context) {
         context.beginPath();
-        context.arc(this.center.x, this.center.y, cellRadius, 0, Tau);
+        context.arc(this.center.x, this.center.y, this.radius, 0, Tau);
         context.stroke();
     }
     GetLineIntersection(line) {
-        var nearestPoint;
-        var d;
+        let nearestPoint;
+        let d;
         if (line.IsHorizontal()) {
             if (line.v1.y <= this.center.y + this.radius && line.v1.y >= this.center.y - this.radius) {
                 nearestPoint = new Vector(this.center.x, line.v1.y);
@@ -624,23 +637,23 @@ class Circle {
             }
         }
         else {
-            let m = line.m();
-            let c = line.c();
-            let a = this.center.x;
-            let b = this.center.y;
-            let r = this.radius;
-            var A = 1 + m * m;
-            var B = 2 * m * (c - b) - 2 * a;
-            var C = a * a + (c - b) * (c - b) - r * r;
-            var D = B * B - 4 * A * C;
+            const m = line.m();
+            const c = line.c();
+            const a = this.center.x;
+            const b = this.center.y;
+            const r = this.radius;
+            const A = 1 + m * m;
+            const B = 2 * m * (c - b) - 2 * a;
+            const C = a * a + (c - b) * (c - b) - r * r;
+            let D = B * B - 4 * A * C;
             if (D < 0) {
                 return undefined;
             }
             else {
-                var denominator = 2 * A;
+                const denominator = 2 * A;
                 D = Math.sqrt(D);
-                var x = (-B + D) / denominator;
-                var p1 = new Vector(x, line.y(x));
+                let x = (-B + D) / denominator;
+                const p1 = new Vector(x, line.y(x));
                 x = (-B - D) / denominator;
                 nearestPoint = p1.GetMidpoint(new Vector(x, line.y(x)));
                 d = nearestPoint.GetDistance(this.center);
@@ -649,15 +662,15 @@ class Circle {
         return new PolarNumber(d, Math.atan2(this.center.y - nearestPoint.y, this.center.x - nearestPoint.x));
     }
     CenterChordIntersects(m) {
-        var denominator = Math.sqrt(1 + m * m);
-        var a = this.radius / denominator;
-        var b = (this.radius * m) / denominator;
+        const denominator = Math.sqrt(1 + m * m);
+        const a = this.radius / denominator;
+        const b = (this.radius * m) / denominator;
         return [new Vector(this.center.x + a, this.center.y + b), new Vector(this.center.x - a, this.center.y - b)];
     }
     Intersection(other) {
-        var dx = other.center.x - this.center.x;
-        var dy = other.center.y - this.center.y;
-        var r = Math.sqrt(dx * dx + dy * dy);
+        const dx = other.center.x - this.center.x;
+        const dy = other.center.y - this.center.y;
+        const r = Math.sqrt(dx * dx + dy * dy);
         if (this.radius + other.radius - r < fuzziness) {
             return undefined;
         }
@@ -670,13 +683,13 @@ class Circle {
     }
 }
 class DropCell {
-    constructor(Q, position) {
+    constructor(Q, position, radius) {
         this.force = new PolarNumber(0, 0);
         if (Q <= 0) {
             debugger;
         }
         this.Q = Q;
-        this.collision = new Circle(position, cellRadius);
+        this.collision = new Circle(position, radius);
     }
     ApplyForce(force, scale = 1) {
         this.force.Add(force, scale * this.Q);
