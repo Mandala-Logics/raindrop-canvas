@@ -1,5 +1,3 @@
-"use strict";
-const debugDraw = false;
 const cellCollisionMultiplier = 0.1;
 const spreadingForceMultiplier = 0.5;
 const polygonCollisionMultiplier = 0.01;
@@ -18,9 +16,6 @@ const Tau = 2 * Math.PI;
 const fuzziness = 0.4;
 const drop_x_cohesion = cellRadius * 5;
 const drop_y_cohesion = cellRadius * 10;
-var canvas;
-var context;
-var sys;
 var RectCorner;
 (function (RectCorner) {
     RectCorner[RectCorner["TopLeft"] = 0] = "TopLeft";
@@ -28,11 +23,6 @@ var RectCorner;
     RectCorner[RectCorner["BottomLeft"] = 2] = "BottomLeft";
     RectCorner[RectCorner["BottomRight"] = 3] = "BottomRight";
 })(RectCorner || (RectCorner = {}));
-window.onload = Start;
-function Start() {
-    sys = new RaindropCanvas();
-    sys.Start();
-}
 function DivRem(a, b) {
     var quotient = Math.trunc(a / b);
     var remainder = a - (quotient * b);
@@ -63,20 +53,6 @@ function GetBoundingRect(cells) {
     });
     return new Rect(new Vector(x_min, y_min), x_max - x_min, y_max - y_min);
 }
-function GetCentroid(cells) {
-    let sumX = 0;
-    let sumY = 0;
-    let totalQ = 0;
-    cells.forEach(cell => {
-        const q = cell.Q;
-        sumX += cell.collision.center.x * q;
-        sumY += cell.collision.center.y * q;
-        totalQ += q;
-    });
-    if (totalQ === 0)
-        return new Vector(0, 0);
-    return new Vector(sumX / totalQ, sumY / totalQ);
-}
 function ClusterCells(cells, max_x, max_y) {
     const clusters = [];
     const visited = new Set();
@@ -105,52 +81,36 @@ function ClusterCells(cells, max_x, max_y) {
     }
     return clusters;
 }
-class RaindropCanvas {
-    constructor() {
+export class RaindropCanvas {
+    constructor(drawCallback) {
         this.Cells = [];
         this.Gravity = new PolarNumber(g, Math.PI / 2);
         this.Polygons = [];
         this.canvasRect = new Rect(new Vector(0, 0), 0, 0);
+        this.keepLoopGoing = true;
         this.Loop = (currentTime) => {
-            context.fillStyle = 'black';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            this.RemoveCells();
-            this.SplitCells();
-            this.ApplySpreadingForce();
-            this.ApplyCellCollision();
-            this.ApplyPolygonCollision();
-            this.MoveCells();
-            this.DefinePolygons();
-            if (debugDraw) {
-                this.Cells.forEach(cell => {
-                    cell.Draw();
-                });
-                this.Polygons.forEach(polygon => {
-                    polygon.Draw(context);
-                });
+            if (this.Cells.length > 0) {
+                this.RemoveCells();
+                this.SplitCells();
+                this.ApplySpreadingForce();
+                this.ApplyCellCollision();
+                this.ApplyPolygonCollision();
+                this.MoveCells();
+                this.DefinePolygons();
             }
-            context.globalCompositeOperation = 'destination-out';
-            context.fillStyle = 'rgba(0, 0, 0, 1)';
-            this.Polygons.forEach(polygon => {
-                polygon.FillSmooth(context);
-            });
-            context.globalCompositeOperation = 'source-over';
-            requestAnimationFrame(this.Loop);
+            this.callback(this.Polygons);
+            if (this.keepLoopGoing) {
+                requestAnimationFrame(this.Loop);
+            }
         };
-        canvas = document.getElementById('mask-canvas');
-        context = canvas.getContext("2d");
-        this.ResizeCanvas();
-        window.addEventListener("resize", () => this.ResizeCanvas());
-        this.DropTimer = window.setInterval(() => this.DropTimerTick(), 1000);
-        this.TrailTimer = window.setInterval(() => this.ShedDropTimerTick(), 500);
+        this.callback = drawCallback;
     }
-    DropTimerTick() {
-        if (this.Cells.length < maxCellCount) {
-            var p = this.canvasRect.GetRandomInteralPoint();
-            this.SpawnDrop(Math.random() * 25 + cellMax * 10, p.x, p.y);
-        }
+    CellCount() { return this.Cells.length; }
+    OnCanvasResize(HTMLCanvas) {
+        var margin = 100;
+        this.canvasRect = new Rect(new Vector(-margin, -margin), HTMLCanvas.width + margin, HTMLCanvas.height + margin);
     }
-    ShedDropTimerTick() {
+    ShedDrops() {
         if (this.Cells.length < maxCellCount) {
             this.Polygons.forEach(polygon => {
                 if (Math.random() < 0.5) {
@@ -160,16 +120,11 @@ class RaindropCanvas {
         }
     }
     Stop() {
-        clearInterval(this.DropTimer);
-        clearInterval(this.TrailTimer);
+        this.Cells = [];
+        this.keepLoopGoing = false;
     }
     Start() {
         requestAnimationFrame(this.Loop);
-    }
-    ResizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        this.canvasRect = new Rect(new Vector(-100, -100), canvas.width + 100, canvas.height + 100);
     }
     DefinePolygons() {
         this.Polygons = [];
@@ -178,15 +133,10 @@ class RaindropCanvas {
             this.Polygons.push(new DropPolygon(clusters[i], polygonResolution));
         }
     }
-    ShedDrops() {
-        this.Polygons.forEach(polygon => {
-            if (polygon.TotalQ() > cellMax) {
-                this.Cells.push(new DropCell(trailQ, polygon.Centroid));
-            }
-        });
-    }
     SpawnDrop(Q, x, y) {
-        this.Cells.push(new DropCell(Q, new Vector(x, y)));
+        if (this.Cells.length < maxCellCount) {
+            this.Cells.push(new DropCell(Q, new Vector(x, y)));
+        }
     }
     ApplyPolygonCollision() {
         var circle;
@@ -417,7 +367,7 @@ class Line {
     IsVertical() { return this.v2.x - this.v1.x < fuzziness; }
     IsHorizontal() { return this.v2.y - this.v1.y < fuzziness; }
 }
-class DropPolygon {
+export class DropPolygon {
     constructor(cells, pointsPerCircle = 16) {
         this.Hull = [];
         this.Lines = [];
@@ -611,7 +561,7 @@ class Rect {
                 return this.BottomRight;
         }
     }
-    Draw() {
+    Draw(context) {
         context.beginPath();
         context.moveTo(this.TopLeft.x, this.TopLeft.y);
         context.moveTo(this.BottomRight.x, this.TopLeft.y);
@@ -647,7 +597,7 @@ class Circle {
     }
     Width() { return this.radius * 2; }
     Height() { return this.radius * 2; }
-    Draw() {
+    Draw(context) {
         context.beginPath();
         context.arc(this.center.x, this.center.y, cellRadius, 0, Tau);
         context.stroke();
@@ -718,12 +668,6 @@ class Circle {
             return new PolarNumber(this.radius + other.radius - r, Math.atan2(dy, dx));
         }
     }
-    GetRadialVector(psi) {
-        return new Vector(this.radius * Math.cos(psi), this.radius * Math.sin(psi));
-    }
-    GetRadialAngle(v) {
-        return Math.atan2(v.y - this.center.y, v.x - this.center.x);
-    }
 }
 class DropCell {
     constructor(Q, position) {
@@ -734,19 +678,13 @@ class DropCell {
         this.Q = Q;
         this.collision = new Circle(position, cellRadius);
     }
-    GetDistance(other) {
-        return this.collision.center.GetDistance(other.collision.center);
-    }
     ApplyForce(force, scale = 1) {
         this.force.Add(force, scale * this.Q);
-    }
-    ApplyDirectForce(force, scale = 1) {
-        this.force.Add(force, scale);
     }
     Shift(x) {
         this.collision.center.Shift(x);
     }
-    Draw() {
-        this.collision.Draw();
+    Draw(context) {
+        this.collision.Draw(context);
     }
 }
