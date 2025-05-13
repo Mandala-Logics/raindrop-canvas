@@ -1,6 +1,6 @@
 Raindrop Canvas Effect
 
-Raindrop demo
+![demo.gif](./demo.gif)
 
 A simple physics engine built in JavaScript that simulates drops hitting a window and rolling down the glass.
 
