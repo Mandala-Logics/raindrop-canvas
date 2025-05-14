@@ -14,6 +14,7 @@ This project is licensed under CC BY-NC 4.0
 Free for personal use. Commercial use requires permission.
 
 💸 [Buy me a coffee](https://buymeacoffee.com/operalimina)
+
 📬 Contact: [website@operalimina.com](mailto:website@operalimina.com)
 
 [operalimina.co.uk](operalimina.co.uk)
