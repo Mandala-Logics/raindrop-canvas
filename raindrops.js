@@ -67,7 +67,7 @@ function ClusterCells(cells, max_x, max_y) {
 }
 export class RaindropSettings {
     constructor(overrides = {}) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
         this.cellCollisionMultiplier = (_a = overrides.cellCollisionMultiplier) !== null && _a !== void 0 ? _a : 0.1;
         this.spreadingForceMultiplier = (_b = overrides.spreadingForceMultiplier) !== null && _b !== void 0 ? _b : 0.5;
         this.polygonCollisionMultiplier = (_c = overrides.polygonCollisionMultiplier) !== null && _c !== void 0 ? _c : 0.01;
@@ -84,7 +84,8 @@ export class RaindropSettings {
         this.trailQ = (_p = overrides.trailQ) !== null && _p !== void 0 ? _p : 0.3;
         this.drop_x_cohesion = (_q = overrides.drop_x_cohesion) !== null && _q !== void 0 ? _q : (this.cellRadius * 5);
         this.drop_y_cohesion = (_r = overrides.drop_y_cohesion) !== null && _r !== void 0 ? _r : (this.cellRadius * 10);
-        this.canvasMargin = (_s = overrides.canvasMargin) !== null && _s !== void 0 ? _s : 50;
+        this.gravity_direction = (_s = overrides.gravity_direction) !== null && _s !== void 0 ? _s : Math.PI / 2;
+        this.canvasMargin = (_t = overrides.canvasMargin) !== null && _t !== void 0 ? _t : 50;
     }
 }
 export class RaindropCanvas {
@@ -110,7 +111,7 @@ export class RaindropCanvas {
         };
         this.callback = drawCallback;
         this.settings = new RaindropSettings();
-        this.Gravity = new PolarNumber(this.settings.gravity, Math.PI / 2);
+        this.Gravity = new PolarNumber(this.settings.gravity, this.settings.gravity_direction);
     }
     ApplySettings(settings) {
         Object.assign(this.settings, settings);
