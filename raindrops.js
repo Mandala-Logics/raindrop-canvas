@@ -115,6 +115,7 @@ export class RaindropCanvas {
     }
     ApplySettings(settings) {
         Object.assign(this.settings, settings);
+        this.Gravity = new PolarNumber(this.settings.gravity, this.settings.gravity_direction);
     }
     GetSettings() {
         return this.settings;
