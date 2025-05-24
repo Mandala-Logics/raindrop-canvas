@@ -1,3 +1,14 @@
+/*!
+ * Raindrop Canvas Effect
+ * 
+ * © Mandala Logics – https://operalimina.co.uk
+ * GitHub: https://github.com/Mandala-Logics/raindrop-canvas
+ * Buy Me a Coffee: https://www.buymeacoffee.com/operalimina
+ * 
+ * This code is free to use for non-commercial purposes.
+ * If you use it, please credit operalimina.co.uk.
+ */
+
 const Tau = 2 * Math.PI;
 const fuzziness = 0.4;
 var RectCorner;
