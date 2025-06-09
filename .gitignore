@@ -1,5 +1,0 @@
-*.ts
-*.json
-node_modules/
-dist/
-build/
